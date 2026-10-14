@@ -10,22 +10,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../constants/data';
-import { sendNotificationWithImage } from '../services/notifications';
+import { sendNotificationWithImage, sendPushToPartner, getMyRole } from '../services/notifications';
 import { getNotificationImage } from '../services/photoDatabase';
 
 const HUG_MESSAGES = [
   `The warmest hug just flew across the miles to you! 🤗💕`,
-  `A big, tight, never-letting-go hug from ${CONFIG.hisName}! 🤗💗`,
-  `Feel that warmth? That's ${CONFIG.hisName} hugging you right now 🤗💕`,
+  `A big, tight, never-letting-go hug! 🤗💗`,
+  `Feel that warmth? Sending you the biggest hug right now 🤗💕`,
 ];
 const KISS_MESSAGES = [
-  `A sweet kiss just landed on your cheek, ${CONFIG.herName}! 😘💕`,
-  `Mwah! 💋 A flying kiss from ${CONFIG.hisName} has arrived!`,
+  `A sweet kiss just landed on your cheek! 😘💕`,
+  `Mwah! 💋 A flying kiss has arrived!`,
   `1000 kisses sent with love! 😘💗 Hope you caught them all!`,
 ];
 const THINK_MESSAGES = [
-  `${CONFIG.hisName} can't stop thinking about you! 💭💕`,
-  `Right now, you're all that's on his mind, ${CONFIG.herName}! 💭💗`,
+  `Can't stop thinking about you! 💭💕`,
+  `Right now, you're all that's on my mind! 💭💗`,
   `Thoughts of you are flying your way right now 💭✨`,
 ];
 
@@ -36,11 +36,11 @@ const LOVE_ACTIONS = [
     type:      'hug',
     title:     'Virtual Hug',
     emoji:     '🤗',
-    desc:      'Wrap her in warmth, even from miles away',
+    desc:      'Wrap your partner in warmth, even from miles away',
     image:     require('../../assets/images/virtual_hug.jpg'),
     notifType: 'hug',
     messages:  HUG_MESSAGES,
-    notifTitle:`🤗 A Warm Hug from ${CONFIG.hisName}!`,
+    notifTitle:`🤗 A Warm Hug for You!`,
     colors:    ['#f6d365', '#fda085'],
   },
   {
@@ -51,18 +51,18 @@ const LOVE_ACTIONS = [
     image:     require('../../assets/images/virtual_kiss.jpg'),
     notifType: 'kiss',
     messages:  KISS_MESSAGES,
-    notifTitle:`😘 A Sweet Kiss from ${CONFIG.hisName}!`,
+    notifTitle:`😘 A Sweet Kiss for You!`,
     colors:    ['#f093fb', '#f5576c'],
   },
   {
     type:      'thinking',
     title:     'Thinking of You',
     emoji:     '💭',
-    desc:      "Let her know she's always on your mind",
+    desc:      "Let your partner know they're always on your mind",
     image:     require('../../assets/images/thinking_of_you.jpg'),
     notifType: 'thinking',
     messages:  THINK_MESSAGES,
-    notifTitle:`💭 ${CONFIG.hisName} is Thinking of You!`,
+    notifTitle:`💭 Thinking of You!`,
     colors:    ['#4facfe', '#00f2fe'],
   },
 ];
@@ -107,12 +107,15 @@ export default function LoveScreen() {
     const imageUri = imgData && typeof imgData.uri === 'string' ? imgData.uri : undefined;
     const msg = randomFrom(action.messages);
 
-    await sendNotificationWithImage({
-      title:    action.notifTitle,
-      body:     msg,
-      imageUri,
-      isRemote: imgData?.isRemote || false,
-      screen:   'Love',
+    const myRole = await getMyRole();
+    const senderName = myRole === 'his' ? CONFIG.hisName : CONFIG.herName;
+
+    // Send Remote Push to partner device!
+    await sendPushToPartner({
+      title: `${action.emoji} ${action.title} from ${senderName}!`,
+      body: msg,
+      screen: 'Love',
+      data: { actionType: action.type, emoji: action.emoji, imageUri },
     });
   }
 

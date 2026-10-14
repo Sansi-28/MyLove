@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from '@react-navigation/native';
 import { CONFIG, DAILY_QUOTES } from '../constants/data';
 import { getHeroImageSource } from '../services/photoDatabase';
+import { getMyRole, setMyRole } from '../services/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -35,12 +36,16 @@ export default function HomeScreen({ navigation }) {
   const [quote, setQuote]             = useState('');
   const [heroSource, setHeroSource]   = useState(require('../../assets/images/couple_hero.jpg'));
   const [heroTitle, setHeroTitle]     = useState('');
+  const [role, setRole]               = useState('his');
 
   const fadeIn = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
-    React.useCallback(() => { refreshHeroImage(); }, [])
+    React.useCallback(() => {
+      refreshHeroImage();
+      getMyRole().then(r => setRole(r));
+    }, [])
   );
 
   async function refreshHeroImage() {
@@ -49,6 +54,13 @@ export default function HomeScreen({ navigation }) {
       setHeroSource(source);
       if (photoData?.styleTitle) setHeroTitle(photoData.styleTitle);
     } catch {}
+  }
+
+  async function toggleDeviceRole() {
+    const nextRole = role === 'his' ? 'her' : 'his';
+    setRole(nextRole);
+    await setMyRole(nextRole);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   useEffect(() => {
@@ -104,6 +116,22 @@ export default function HomeScreen({ navigation }) {
 
             {/* ══ HERO GLASS CARD ══ */}
             <View style={styles.heroSpacer} />
+
+            {/* ══ DEVICE ROLE PAIRING CHIP ══ */}
+            <TouchableOpacity
+              onPress={toggleDeviceRole}
+              activeOpacity={0.8}
+              style={styles.roleChip}
+            >
+              <BlurView intensity={Platform.OS === 'ios' ? 50 : 75} tint="light" style={styles.roleChipInner}>
+                <View style={[styles.roleDot, { backgroundColor: role === 'his' ? '#66a6ff' : '#ff69b4' }]} />
+                <Text style={styles.roleText}>
+                  Device: {role === 'his' ? `${CONFIG.hisName}'s Phone` : `${CONFIG.herName}'s Phone`}
+                </Text>
+                <Text style={styles.roleSwitchBadge}>Tap to switch ⇄</Text>
+              </BlurView>
+            </TouchableOpacity>
+
             <Animated.View style={[styles.glassCard, { transform: [{ translateY: floatAnim }] }]}>
               <BlurView intensity={Platform.OS === 'ios' ? 60 : 80} tint="light" style={styles.glassInner}>
                 <Image source={heroSource} style={styles.heroThumbnail} />
@@ -190,7 +218,40 @@ const styles = StyleSheet.create({
   bgGradient: { position: 'absolute', width: '100%', height: '100%' },
   scroll: { paddingBottom: 60, paddingHorizontal: 20 },
 
-  heroSpacer: { height: Platform.OS === 'ios' ? 90 : 60 },
+  heroSpacer: { height: Platform.OS === 'ios' ? 70 : 45 },
+
+  roleChip: {
+    alignSelf: 'center',
+    marginBottom: 14,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  roleChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  roleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  roleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  roleSwitchBadge: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    marginLeft: 8,
+    fontStyle: 'italic',
+  },
 
   glassCard: {
     borderRadius: 30,

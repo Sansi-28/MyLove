@@ -20,7 +20,10 @@ import { PRESETS } from '../services/photoDatabase';
 import {
   sendNotificationWithImage,
   sendNotificationWithRecentGalleryImage,
+  sendPushToPartner,
+  getMyRole,
 } from '../services/notifications';
+import { uploadImageToFirebase } from '../services/firebaseHelpers';
 
 const { width } = Dimensions.get('window');
 const COL = 3;
@@ -81,13 +84,14 @@ export default function GalleryScreen({ navigation }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const uri = typeof photo.uri === 'string' ? photo.uri : undefined;
-      await sendNotificationWithImage({
-        title: `📸 Special Photo for ${CONFIG.herName}! 💕`,
+      const myRole = await getMyRole();
+      const recipientName = myRole === 'his' ? CONFIG.herName : CONFIG.hisName;
+
+      await sendPushToPartner({
+        title: `📸 Special Photo for ${recipientName}! 💕`,
         body: `${photo.caption || 'Look at this photo from our gallery!'} Tap to open 💕`,
-        imageUri: uri,
-        isRemote: photo.isRemote,
         screen: 'Gallery',
-        data: { photoId: photo.id },
+        data: { photoId: photo.id, imageUri: uri },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -117,10 +121,18 @@ export default function GalleryScreen({ navigation }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       for (const asset of result.assets) {
+        let finalUri = asset.uri;
+        try {
+          const cloudUrl = await uploadImageToFirebase(asset.uri, `gallery/${role}`);
+          if (cloudUrl) finalUri = cloudUrl;
+        } catch (uploadErr) {
+          console.log('Using local URI:', uploadErr?.message);
+        }
+
         // 1. Add to photo pool (his/her)
-        await addToPhotoPool(role, asset.uri);
+        await addToPhotoPool(role, finalUri);
         // 2. Add to gallery DB
-        await addUserUploadToGallery(asset.uri, role);
+        await addUserUploadToGallery(finalUri, role);
       }
 
       await loadGallery();

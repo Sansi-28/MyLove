@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="100dp"
+    android:padding="12dp">
+
+    <!-- The HUGE image on the right side -->
+    <ImageView
+        android:id="@+id/notif_image"
+        android:layout_width="84dp"
+        android:layout_height="84dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:scaleType="centerCrop"
+        android:background="#f5f5f5" />
+
+    <!-- The Title Text -->
+    <TextView
+        android:id="@+id/notif_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toStartOf="@id/notif_image"
+        android:layout_marginEnd="12dp"
+        android:textColor="#2d0016"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <!-- The Body Text -->
+    <TextView
+        android:id="@+id/notif_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/notif_title"
+        android:layout_toStartOf="@id/notif_image"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="4dp"
+        android:textColor="#c2748a"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textSize="14sp" />
+
+</RelativeLayout>

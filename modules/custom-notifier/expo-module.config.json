@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["CustomNotifierModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.customnotifier.CustomNotifierModule"]
+  }
+}

@@ -9,8 +9,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, isFirebaseConfigured } from '../config/firebase';
 import { CONFIG, MOODS, MOOD_RESPONSES } from '../constants/data';
-import { sendNotificationWithImage } from '../services/notifications';
+import { sendPushToPartner, sendNotificationWithImage, getMyRole } from '../services/notifications';
 import { getNotificationImage } from '../services/photoDatabase';
 
 function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -20,13 +22,38 @@ export default function MoodScreen() {
   const [response, setResponse]   = useState('');
   const [history, setHistory]     = useState([]);
   const [moodImg, setMoodImg]     = useState(null);
+  const [currentRole, setCurrentRole] = useState('his');
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    loadHistory();
+    loadLocalHistory();
+    getMyRole().then(r => setCurrentRole(r));
+
+    // 🔄 Real-time Cloud Sync with Firebase
+    if (isFirebaseConfigured && db) {
+      try {
+        const q = query(collection(db, 'moods'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const cloudMoods = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            date: doc.data().createdAt?.toDate ?
+              doc.data().createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' +
+              doc.data().createdAt.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) :
+              'Just now',
+          }));
+          if (cloudMoods.length > 0) {
+            setHistory(cloudMoods);
+          }
+        });
+        return () => unsubscribe();
+      } catch (err) {
+        console.warn('Firebase mood sync warning:', err?.message);
+      }
+    }
   }, []);
 
-  async function loadHistory() {
+  async function loadLocalHistory() {
     const raw = await AsyncStorage.getItem('moodHistory');
     if (raw) setHistory(JSON.parse(raw));
   }
@@ -48,29 +75,52 @@ export default function MoodScreen() {
     const imgData = await getNotificationImage('love');
     setMoodImg(imgData);
 
+    const myRole = await getMyRole();
+    const senderName = myRole === 'his' ? CONFIG.hisName : CONFIG.herName;
+
     const entry = {
-      id:    Date.now().toString(),
+      id: Date.now().toString(),
       moodKey: mood.key,
       emoji: mood.emoji,
       label: mood.label,
+      sender: myRole,
       date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' +
             new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
     };
+
+    // 1. Update Local Storage & State
     const updated = [entry, ...history.slice(0, 19)];
     setHistory(updated);
     await AsyncStorage.setItem('moodHistory', JSON.stringify(updated));
 
-    // Send notification with AI photo attached
+    // 2. Sync to Firebase Cloud DB
+    if (isFirebaseConfigured && db) {
+      try {
+        await addDoc(collection(db, 'moods'), {
+          moodKey: mood.key,
+          emoji: mood.emoji,
+          label: mood.label,
+          sender: myRole,
+          createdAt: serverTimestamp(),
+        });
+        console.log('☁️ Mood synced to Firebase');
+      } catch (cloudErr) {
+        console.warn('Cloud mood save error:', cloudErr?.message);
+      }
+    }
+
+    // 3. Send Remote Push Notification to Partner's phone!
     try {
       const imageUri = imgData && typeof imgData.uri === 'string' ? imgData.uri : undefined;
-      await sendNotificationWithImage({
-        title: `${CONFIG.herName} is feeling ${mood.emoji} "${mood.label}"`,
-        body:  reply,
-        imageUri,
-        isRemote: imgData?.isRemote || false,
+      await sendPushToPartner({
+        title: `${senderName} is feeling ${mood.emoji} "${mood.label}"`,
+        body: `Tap to send some love back! 💕`,
         screen: 'Mood',
+        data: { moodKey: mood.key, emoji: mood.emoji, imageUri },
       });
-    } catch {}
+    } catch (pushErr) {
+      console.warn('Push error:', pushErr?.message);
+    }
   }
 
   const MOOD_COLORS = {
