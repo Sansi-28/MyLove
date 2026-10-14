@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
+import notifee, { EventType } from '@notifee/react-native';
 import * as Notifications from 'expo-notifications';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -34,7 +35,22 @@ export default function App() {
       }
     });
 
-    // 2. Notification tap response listener (navigates with image params)
+    // 2. Notifee notification press listener
+    const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS && detail.notification?.data) {
+        const data = detail.notification.data;
+        const screen = data?.screen || 'Gallery';
+        if (screen && navigationRef.current) {
+          navigationRef.current.navigate(screen, {
+            photoId: data?.photoId,
+            imageUri: data?.imageUri,
+            caption: data?.caption,
+          });
+        }
+      }
+    });
+
+    // 3. Expo Notification tap response listener (fallback)
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       const screen = data?.screen || 'Gallery';
@@ -47,13 +63,14 @@ export default function App() {
       }
     });
 
-    // 3. Foreground notification reception listener
+    // 4. Foreground notification reception listener
     const receivedListener = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data;
       console.log('🔔 Notification received with gallery image:', data?.imageUri || 'preset');
     });
 
     return () => {
+      unsubscribeNotifee();
       Notifications.removeNotificationSubscription(responseListener);
       Notifications.removeNotificationSubscription(receivedListener);
     };

@@ -27,6 +27,7 @@
       ]
     },
     "plugins": [
+      "@notifee/react-native",
       [
         "expo-notifications",
         {

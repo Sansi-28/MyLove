@@ -89,7 +89,7 @@ async function getImageBase64(uri) {
   return null;
 }
 
-// ─── Vision Likeness Engine: Extract actual facial features from user uploads ───
+// ─── Vision Likeness Engine: Celebrity-Mix Hack for Face Accuracy ───
 async function generateLikenessPromptFromPhotos({ hisUri, herUri, style, apiKey }) {
   try {
     const [hisData, herData] = await Promise.all([
@@ -97,26 +97,26 @@ async function generateLikenessPromptFromPhotos({ hisUri, herUri, style, apiKey 
       getImageBase64(herUri),
     ]);
 
-    if (!hisData || !herData) {
-      console.log('Skipping vision extraction: could not load both photo data');
-      return null;
-    }
+    if (!hisData || !herData) return null;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    const promptInstructions = `You are an elite portrait artist specializing in visual likeness preservation.
+    // THE LIKENESS HACK: Force GPT-4o Vision to use Celebrity-Mixing for Flux
+    const promptInstructions = `You are a master portrait prompt engineer for Flux AI.
 Analyze the two provided photos:
 - Photo 1 is the boyfriend ${CONFIG.hisName}.
 - Photo 2 is the girlfriend ${CONFIG.herName}.
 
-1. Carefully inspect ${CONFIG.hisName} in Photo 1: note his exact hair style/length/color, facial hair (beard/mustache/stubble or clean-shaven), face shape, eye shape, glasses (if any), skin tone, and distinct facial traits.
-2. Carefully inspect ${CONFIG.herName} in Photo 2: note her exact hairstyle/parting/length, facial structure, eye shape, smile, skin tone, glasses (if any), and distinct facial traits.
-3. Write a single detailed, highly artistic image generation prompt (around 70 to 85 words) depicting ${CONFIG.hisName} and ${CONFIG.herName} together as an affectionate couple in the style "${style.title}" (${style.tag}).
+CRITICAL TASK: Text-to-image models struggle with standard descriptions. To preserve their EXACT likeness, you must figure out what 2 or 3 famous celebrities each person looks like if combined.
+Example: "A man who looks like a perfect mix of Dev Patel and Zayn Malik, with short textured hair..."
 
-CRITICAL REQUIREMENTS:
-- You MUST explicitly weave in their exact observed hairstyles, facial structures, skin tones, facial hair, and distinguishing features from the photos so they clearly recognize themselves.
-- Output ONLY the final visual prompt description text. Do not add quotes, introductions, or conversational commentary.`;
+1. For ${CONFIG.hisName}, create a celebrity-mix equation based on his facial structure, hair, and skin.
+2. For ${CONFIG.herName}, create a celebrity-mix equation based on her facial structure, hair, and skin.
+3. Write a highly artistic generation prompt (around 70 to 85 words) depicting them together as an affectionate couple in the style "${style.title}" (${style.tag}).
+
+- Weave the celebrity-mix descriptions seamlessly into the prompt so the AI accurately recreates their faces.
+- Output ONLY the final visual prompt text. No intros or quotes.`;
 
     const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
       method: 'POST',
@@ -125,12 +125,9 @@ CRITICAL REQUIREMENTS:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'openai',
+        model: 'openai', // Maps to GPT-4o Vision on Pollinations
         messages: [
-          {
-            role: 'system',
-            content: 'You are an elite portrait artist specializing in visual likeness preservation.',
-          },
+          { role: 'system', content: 'You are an elite portrait artist prompt engineer.' },
           {
             role: 'user',
             content: [
@@ -141,7 +138,7 @@ CRITICAL REQUIREMENTS:
           },
         ],
         temperature: 0.7,
-        max_tokens: 280,
+        max_tokens: 300,
       }),
       signal: controller.signal,
     });
@@ -156,7 +153,7 @@ CRITICAL REQUIREMENTS:
     const generatedPrompt = data.choices?.[0]?.message?.content?.trim();
     if (generatedPrompt && generatedPrompt.length > 20) {
       const cleanPrompt = generatedPrompt.replace(/^["']|["']$/g, '');
-      console.log('👁️ Vision Likeness extracted successfully:', cleanPrompt.slice(0, 90) + '...');
+      console.log('👁️ Celebrity-Mix Likeness extracted successfully:', cleanPrompt.slice(0, 90) + '...');
       return cleanPrompt;
     }
     return null;
