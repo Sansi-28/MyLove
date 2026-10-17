@@ -42,6 +42,7 @@ build-*.log
 # Generated Native Prebuild Folders (managed by Expo)
 /android
 /ios
+modules/**/build/
 
 # 💻 Editor & IDE Files
 .vscode/
